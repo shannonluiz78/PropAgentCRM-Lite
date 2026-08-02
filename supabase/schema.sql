@@ -33,11 +33,11 @@ create table if not exists properties (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   address text not null,
-  property_type text,              -- HDB, condo, landed, etc.
+  property_type text not null check (property_type in ('hdb','condo','ec','landed')),
   bedrooms int,
   bathrooms int,
   size_sqft int,
-  owner_customer_id uuid references customers(id) on delete set null,
+  owner_customer_id uuid not null references customers(id) on delete restrict,
   notes text,
   owner_id uuid references auth.users(id) default auth.uid()
 );
@@ -46,7 +46,7 @@ create table if not exists listings (
   id uuid primary key default uuid_generate_v4(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  property_id uuid references properties(id) on delete cascade,
+  property_id uuid not null references properties(id) on delete cascade,
   listing_type text not null check (listing_type in ('sale','rental')),
   price numeric,
   status text not null default 'draft' check (

@@ -59,7 +59,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Customers</h1>
           <p className="text-sm text-ink-soft">
@@ -101,8 +101,8 @@ export default function CustomersPage() {
       )}
 
       {customers.length > 0 && (
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
+        <Card className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
