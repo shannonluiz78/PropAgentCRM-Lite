@@ -5,16 +5,17 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AddTaskForm } from "@/components/dashboard/add-task-form";
-import { Plus, CheckSquare, Square, Bot } from "lucide-react";
+import { AddTaskForm, type ExistingTask } from "@/components/dashboard/add-task-form";
+import { Plus, CheckSquare, Square, Bot, Pencil, Trash2 } from "lucide-react";
 
 type Task = {
   id: string;
   title: string;
   due_at: string | null;
   status: string;
-  priority: string;
+  priority: ExistingTask["priority"];
   source: string;
+  customer_id: string | null;
   customers: { full_name: string } | null;
 };
 
@@ -39,10 +40,21 @@ function formatDue(iso: string | null) {
   };
 }
 
+function toExisting(t: Task): ExistingTask {
+  return {
+    id: t.id,
+    title: t.title,
+    due_at: t.due_at,
+    priority: t.priority,
+    customer_id: t.customer_id,
+  };
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function load() {
@@ -50,7 +62,7 @@ export default function TasksPage() {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, due_at, status, priority, source, customers(full_name)")
+      .select("id, title, due_at, status, priority, source, customer_id, customers(full_name)")
       .order("due_at", { ascending: true, nullsFirst: false });
 
     if (error) {
@@ -67,12 +79,29 @@ export default function TasksPage() {
     load();
   }, []);
 
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+    load();
+  }
+
   async function toggleDone(id: string, currentStatus: string) {
     const supabase = createClient();
     await supabase
       .from("tasks")
       .update({ status: currentStatus === "open" ? "done" : "open" })
       .eq("id", id);
+    load();
+  }
+
+  async function handleDelete(t: Task) {
+    if (!confirm(`Delete "${t.title}"? This can't be undone.`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("tasks").delete().eq("id", t.id);
+    if (error) {
+      alert(`Couldn't delete: ${error.message}`);
+      return;
+    }
     load();
   }
 
@@ -89,19 +118,19 @@ export default function TasksPage() {
             once the agent layer is live.
           </p>
         </div>
-        <Button onClick={() => setShowForm((s) => !s)}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm((s) => !s);
+          }}
+        >
           <Plus size={16} />
           New task
         </Button>
       </div>
 
-      {showForm && (
-        <AddTaskForm
-          onClose={() => {
-            setShowForm(false);
-            load();
-          }}
-        />
+      {(showForm || editing) && (
+        <AddTaskForm existing={editing ? toExisting(editing) : undefined} onClose={closeForm} />
       )}
 
       {errorMsg && (
@@ -162,6 +191,25 @@ export default function TasksPage() {
                     <p className="text-xs text-ink-soft">{t.customers.full_name}</p>
                   )}
                 </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditing(t);
+                    }}
+                    className="rounded p-1.5 text-ink-soft hover:bg-background hover:text-ink"
+                    aria-label={`Edit ${t.title}`}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(t)}
+                    className="rounded p-1.5 text-ink-soft hover:bg-attention/10 hover:text-attention"
+                    aria-label={`Delete ${t.title}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -185,7 +233,14 @@ export default function TasksPage() {
               >
                 <CheckSquare size={18} />
               </button>
-              <p className="text-sm text-ink line-through">{t.title}</p>
+              <p className="flex-1 text-sm text-ink line-through">{t.title}</p>
+              <button
+                onClick={() => handleDelete(t)}
+                className="rounded p-1.5 text-ink-soft hover:bg-attention/10 hover:text-attention"
+                aria-label={`Delete ${t.title}`}
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           ))}
         </Card>

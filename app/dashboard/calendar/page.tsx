@@ -5,16 +5,18 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AddEventForm } from "@/components/dashboard/add-event-form";
-import { Plus, Calendar as CalendarIcon, MapPin } from "lucide-react";
+import { AddEventForm, type ExistingEvent } from "@/components/dashboard/add-event-form";
+import { Plus, Calendar as CalendarIcon, MapPin, Pencil, Trash2 } from "lucide-react";
 
 type Event = {
   id: string;
   title: string;
-  event_type: string;
+  event_type: ExistingEvent["event_type"];
   starts_at: string;
   ends_at: string | null;
   location: string | null;
+  customer_id: string | null;
+  property_id: string | null;
   customers: { full_name: string } | null;
   properties: { address: string } | null;
 };
@@ -37,7 +39,28 @@ function formatWhen(iso: string) {
   });
 }
 
-function EventRow({ event }: { event: Event }) {
+function toExisting(e: Event): ExistingEvent {
+  return {
+    id: e.id,
+    title: e.title,
+    event_type: e.event_type,
+    starts_at: e.starts_at,
+    ends_at: e.ends_at,
+    location: e.location,
+    customer_id: e.customer_id,
+    property_id: e.property_id,
+  };
+}
+
+function EventRow({
+  event,
+  onEdit,
+  onDelete,
+}: {
+  event: Event;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3 last:border-0">
       <div>
@@ -58,6 +81,22 @@ function EventRow({ event }: { event: Event }) {
           )}
         </div>
       </div>
+      <div className="flex gap-1">
+        <button
+          onClick={onEdit}
+          className="rounded p-1.5 text-ink-soft hover:bg-background hover:text-ink"
+          aria-label={`Edit ${event.title}`}
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          onClick={onDelete}
+          className="rounded p-1.5 text-ink-soft hover:bg-attention/10 hover:text-attention"
+          aria-label={`Delete ${event.title}`}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -67,6 +106,7 @@ export default function CalendarPage() {
   const [past, setPast] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Event | null>(null);
   const [showPast, setShowPast] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -76,7 +116,7 @@ export default function CalendarPage() {
     const { data, error } = await supabase
       .from("calendar_events")
       .select(
-        "id, title, event_type, starts_at, ends_at, location, customers(full_name), properties(address)"
+        "id, title, event_type, starts_at, ends_at, location, customer_id, property_id, customers(full_name), properties(address)"
       )
       .order("starts_at", { ascending: true });
 
@@ -101,7 +141,24 @@ export default function CalendarPage() {
     load();
   }, []);
 
-  const events = upcoming.length + past.length;
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+    load();
+  }
+
+  async function handleDelete(event: Event) {
+    if (!confirm(`Delete "${event.title}"? This can't be undone.`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("calendar_events").delete().eq("id", event.id);
+    if (error) {
+      alert(`Couldn't delete: ${error.message}`);
+      return;
+    }
+    load();
+  }
+
+  const eventCount = upcoming.length + past.length;
 
   return (
     <div className="space-y-6">
@@ -112,19 +169,19 @@ export default function CalendarPage() {
             Viewings, meetings, and follow-ups.
           </p>
         </div>
-        <Button onClick={() => setShowForm((s) => !s)}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm((s) => !s);
+          }}
+        >
           <Plus size={16} />
           New event
         </Button>
       </div>
 
-      {showForm && (
-        <AddEventForm
-          onClose={() => {
-            setShowForm(false);
-            load();
-          }}
-        />
+      {(showForm || editing) && (
+        <AddEventForm existing={editing ? toExisting(editing) : undefined} onClose={closeForm} />
       )}
 
       {errorMsg && (
@@ -133,7 +190,7 @@ export default function CalendarPage() {
         </Card>
       )}
 
-      {!loading && !errorMsg && events === 0 && (
+      {!loading && !errorMsg && eventCount === 0 && (
         <Card className="flex flex-col items-center justify-center gap-2 p-12 text-center">
           <CalendarIcon className="text-ink-soft" size={28} />
           <p className="text-sm font-medium text-ink">Nothing on the calendar</p>
@@ -150,7 +207,15 @@ export default function CalendarPage() {
             Upcoming
           </div>
           {upcoming.map((e) => (
-            <EventRow key={e.id} event={e} />
+            <EventRow
+              key={e.id}
+              event={e}
+              onEdit={() => {
+                setShowForm(false);
+                setEditing(e);
+              }}
+              onDelete={() => handleDelete(e)}
+            />
           ))}
         </Card>
       )}
@@ -166,7 +231,15 @@ export default function CalendarPage() {
           {showPast && (
             <Card className="mt-3 overflow-hidden opacity-70">
               {past.map((e) => (
-                <EventRow key={e.id} event={e} />
+                <EventRow
+                  key={e.id}
+                  event={e}
+                  onEdit={() => {
+                    setShowForm(false);
+                    setEditing(e);
+                  }}
+                  onDelete={() => handleDelete(e)}
+                />
               ))}
             </Card>
           )}

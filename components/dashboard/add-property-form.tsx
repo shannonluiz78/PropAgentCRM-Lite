@@ -17,19 +17,41 @@ const TYPES = [
 
 type CustomerOption = { id: string; full_name: string; type: string };
 
-export function AddPropertyForm({ onClose }: { onClose: () => void }) {
+export type ExistingProperty = {
+  id: string;
+  address: string;
+  property_type: string;
+  owner_customer_id: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  size_sqft: number | null;
+  notes: string | null;
+  tenure: string | null;
+  lease_remaining_years: number | null;
+};
+
+export function AddPropertyForm({
+  existing,
+  onClose,
+}: {
+  existing?: ExistingProperty;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    address: "",
-    property_type: "hdb" as (typeof TYPES)[number]["value"],
-    owner_customer_id: "",
-    bedrooms: "",
-    bathrooms: "",
-    size_sqft: "",
-    notes: "",
+    address: existing?.address ?? "",
+    property_type:
+      (existing?.property_type as (typeof TYPES)[number]["value"]) ?? "hdb",
+    owner_customer_id: existing?.owner_customer_id ?? "",
+    bedrooms: existing?.bedrooms?.toString() ?? "",
+    bathrooms: existing?.bathrooms?.toString() ?? "",
+    size_sqft: existing?.size_sqft?.toString() ?? "",
+    notes: existing?.notes ?? "",
+    tenure: existing?.tenure ?? "",
+    lease_remaining_years: existing?.lease_remaining_years?.toString() ?? "",
   });
 
   useEffect(() => {
@@ -54,7 +76,7 @@ export function AddPropertyForm({ onClose }: { onClose: () => void }) {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.from("properties").insert({
+    const payload = {
       address: form.address,
       property_type: form.property_type,
       owner_customer_id: form.owner_customer_id,
@@ -62,7 +84,15 @@ export function AddPropertyForm({ onClose }: { onClose: () => void }) {
       bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
       size_sqft: form.size_sqft ? Number(form.size_sqft) : null,
       notes: form.notes || null,
-    });
+      tenure: form.tenure || null,
+      lease_remaining_years: form.lease_remaining_years
+        ? Number(form.lease_remaining_years)
+        : null,
+    };
+
+    const { error } = existing
+      ? await supabase.from("properties").update(payload).eq("id", existing.id)
+      : await supabase.from("properties").insert(payload);
 
     setLoading(false);
 
@@ -78,7 +108,9 @@ export function AddPropertyForm({ onClose }: { onClose: () => void }) {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">New property</h2>
+        <h2 className="text-sm font-semibold text-ink">
+          {existing ? "Edit property" : "New property"}
+        </h2>
         <button onClick={onClose} className="text-ink-soft hover:text-ink">
           <X size={18} />
         </button>
@@ -145,6 +177,36 @@ export function AddPropertyForm({ onClose }: { onClose: () => void }) {
 
           <div className="col-span-2 sm:col-span-1">
             <label className="mb-1.5 block text-sm font-medium text-ink">
+              Tenure
+            </label>
+            <select
+              value={form.tenure}
+              onChange={(e) => update("tenure", e.target.value)}
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass/40 focus:border-brass"
+            >
+              <option value="">Not set</option>
+              <option value="freehold">Freehold</option>
+              <option value="99_leasehold">99-year leasehold</option>
+              <option value="999_leasehold">999-year leasehold</option>
+            </select>
+          </div>
+
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              Lease remaining (years)
+            </label>
+            <Input
+              type="number"
+              min="0"
+              value={form.lease_remaining_years}
+              onChange={(e) => update("lease_remaining_years", e.target.value)}
+              placeholder="e.g. 62"
+              disabled={form.tenure === "freehold"}
+            />
+          </div>
+
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
               Size (sqft)
             </label>
             <Input
@@ -206,7 +268,7 @@ export function AddPropertyForm({ onClose }: { onClose: () => void }) {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving…" : "Save property"}
+              {loading ? "Saving…" : existing ? "Save changes" : "Save property"}
             </Button>
           </div>
         </form>

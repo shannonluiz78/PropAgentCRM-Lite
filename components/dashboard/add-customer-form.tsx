@@ -10,18 +10,35 @@ import { X } from "lucide-react";
 
 const TYPES = ["buyer", "seller", "landlord", "tenant"] as const;
 
-export function AddCustomerForm({ onClose }: { onClose: () => void }) {
+export type ExistingCustomer = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  type: string;
+  source: string | null;
+  area_focus: string | null;
+  requirements: string | null;
+};
+
+export function AddCustomerForm({
+  existing,
+  onClose,
+}: {
+  existing?: ExistingCustomer;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    full_name: "",
-    phone: "",
-    email: "",
-    type: "buyer" as (typeof TYPES)[number],
-    source: "",
-    area_focus: "",
-    requirements: "",
+    full_name: existing?.full_name ?? "",
+    phone: existing?.phone ?? "",
+    email: existing?.email ?? "",
+    type: (existing?.type as (typeof TYPES)[number]) ?? "buyer",
+    source: existing?.source ?? "",
+    area_focus: existing?.area_focus ?? "",
+    requirements: existing?.requirements ?? "",
   });
 
   function update<K extends keyof typeof form>(key: K, value: string) {
@@ -34,7 +51,7 @@ export function AddCustomerForm({ onClose }: { onClose: () => void }) {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.from("customers").insert({
+    const payload = {
       full_name: form.full_name,
       phone: form.phone || null,
       email: form.email || null,
@@ -42,7 +59,11 @@ export function AddCustomerForm({ onClose }: { onClose: () => void }) {
       source: form.source || null,
       area_focus: form.area_focus || null,
       requirements: form.requirements || null,
-    });
+    };
+
+    const { error } = existing
+      ? await supabase.from("customers").update(payload).eq("id", existing.id)
+      : await supabase.from("customers").insert(payload);
 
     setLoading(false);
 
@@ -58,7 +79,9 @@ export function AddCustomerForm({ onClose }: { onClose: () => void }) {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">New lead</h2>
+        <h2 className="text-sm font-semibold text-ink">
+          {existing ? "Edit lead" : "New lead"}
+        </h2>
         <button onClick={onClose} className="text-ink-soft hover:text-ink">
           <X size={18} />
         </button>
@@ -164,7 +187,7 @@ export function AddCustomerForm({ onClose }: { onClose: () => void }) {
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? "Saving…" : "Save lead"}
+            {loading ? "Saving…" : existing ? "Save changes" : "Save lead"}
           </Button>
         </div>
       </form>

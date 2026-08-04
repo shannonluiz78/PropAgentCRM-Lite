@@ -18,20 +18,44 @@ const EVENT_TYPES = [
 type CustomerOption = { id: string; full_name: string };
 type PropertyOption = { id: string; address: string };
 
-export function AddEventForm({ onClose }: { onClose: () => void }) {
+function toLocalInputValue(iso: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export type ExistingEvent = {
+  id: string;
+  title: string;
+  event_type: (typeof EVENT_TYPES)[number]["value"];
+  starts_at: string;
+  ends_at: string | null;
+  location: string | null;
+  customer_id: string | null;
+  property_id: string | null;
+};
+
+export function AddEventForm({
+  existing,
+  onClose,
+}: {
+  existing?: ExistingEvent;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [properties, setProperties] = useState<PropertyOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    title: "",
-    event_type: "viewing" as (typeof EVENT_TYPES)[number]["value"],
-    starts_at: "",
-    ends_at: "",
-    location: "",
-    customer_id: "",
-    property_id: "",
+    title: existing?.title ?? "",
+    event_type: existing?.event_type ?? "viewing",
+    starts_at: toLocalInputValue(existing?.starts_at ?? null),
+    ends_at: toLocalInputValue(existing?.ends_at ?? null),
+    location: existing?.location ?? "",
+    customer_id: existing?.customer_id ?? "",
+    property_id: existing?.property_id ?? "",
   });
 
   useEffect(() => {
@@ -57,7 +81,7 @@ export function AddEventForm({ onClose }: { onClose: () => void }) {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.from("calendar_events").insert({
+    const payload = {
       title: form.title,
       event_type: form.event_type,
       starts_at: new Date(form.starts_at).toISOString(),
@@ -65,7 +89,11 @@ export function AddEventForm({ onClose }: { onClose: () => void }) {
       location: form.location || null,
       customer_id: form.customer_id || null,
       property_id: form.property_id || null,
-    });
+    };
+
+    const { error } = existing
+      ? await supabase.from("calendar_events").update(payload).eq("id", existing.id)
+      : await supabase.from("calendar_events").insert(payload);
 
     setLoading(false);
 
@@ -81,7 +109,9 @@ export function AddEventForm({ onClose }: { onClose: () => void }) {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">New event</h2>
+        <h2 className="text-sm font-semibold text-ink">
+          {existing ? "Edit event" : "New event"}
+        </h2>
         <button onClick={onClose} className="text-ink-soft hover:text-ink">
           <X size={18} />
         </button>
@@ -198,7 +228,7 @@ export function AddEventForm({ onClose }: { onClose: () => void }) {
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? "Saving…" : "Save event"}
+            {loading ? "Saving…" : existing ? "Save changes" : "Save event"}
           </Button>
         </div>
       </form>

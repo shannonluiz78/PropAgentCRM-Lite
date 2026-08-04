@@ -5,18 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AddCustomerForm } from "@/components/dashboard/add-customer-form";
-import { Plus, Users } from "lucide-react";
+import { AddCustomerForm, type ExistingCustomer } from "@/components/dashboard/add-customer-form";
+import { Plus, Users, Pencil, Trash2, PhoneCall } from "lucide-react";
 
-type Customer = {
-  id: string;
-  full_name: string;
-  type: string;
+type Customer = ExistingCustomer & {
   status: string;
-  phone: string | null;
-  area_focus: string | null;
-  source: string | null;
   created_at: string;
+  last_contacted_at: string | null;
 };
 
 const STATUS_TONE: Record<string, "success" | "pending" | "attention" | "info" | "neutral"> = {
@@ -29,10 +24,20 @@ const STATUS_TONE: Record<string, "success" | "pending" | "attention" | "info" |
   lost: "neutral",
 };
 
+function formatLastContacted(iso: string | null) {
+  if (!iso) return { text: "Never", stale: true };
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  const stale = days >= 7;
+  const text =
+    days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days} days ago`;
+  return { text, stale };
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function load() {
@@ -40,7 +45,9 @@ export default function CustomersPage() {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("customers")
-      .select("id, full_name, type, status, phone, area_focus, source, created_at")
+      .select(
+        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -57,6 +64,38 @@ export default function CustomersPage() {
     load();
   }, []);
 
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+    load();
+  }
+
+  async function markContacted(id: string) {
+    const supabase = createClient();
+    await supabase
+      .from("customers")
+      .update({ last_contacted_at: new Date().toISOString() })
+      .eq("id", id);
+    load();
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete ${name}? This can't be undone.`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("customers").delete().eq("id", id);
+    if (error) {
+      if (error.code === "23503") {
+        alert(
+          "Can't delete — this customer still owns a property. Delete or reassign that property first."
+        );
+      } else {
+        alert(`Couldn't delete: ${error.message}`);
+      }
+      return;
+    }
+    load();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,19 +105,19 @@ export default function CustomersPage() {
             Buyers, sellers, landlords, and tenants in your pipeline.
           </p>
         </div>
-        <Button onClick={() => setShowForm((s) => !s)}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm((s) => !s);
+          }}
+        >
           <Plus size={16} />
           New lead
         </Button>
       </div>
 
-      {showForm && (
-        <AddCustomerForm
-          onClose={() => {
-            setShowForm(false);
-            load();
-          }}
-        />
+      {(showForm || editing) && (
+        <AddCustomerForm existing={editing ?? undefined} onClose={closeForm} />
       )}
 
       {errorMsg && (
@@ -102,7 +141,7 @@ export default function CustomersPage() {
 
       {customers.length > 0 && (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[920px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -111,6 +150,8 @@ export default function CustomersPage() {
                 <th className="px-4 py-3 font-medium">Area focus</th>
                 <th className="px-4 py-3 font-medium">Source</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
+                <th className="px-4 py-3 font-medium">Last contacted</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -126,6 +167,47 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-ink-soft">{c.area_focus ?? "—"}</td>
                   <td className="px-4 py-3 text-ink-soft">{c.source ?? "—"}</td>
                   <td className="px-4 py-3 text-ink-soft">{c.phone ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const lc = formatLastContacted(c.last_contacted_at);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className={lc.stale ? "text-attention font-medium" : "text-ink-soft"}>
+                            {lc.text}
+                          </span>
+                          <button
+                            onClick={() => markContacted(c.id)}
+                            className="rounded p-1 text-ink-soft hover:bg-background hover:text-ink"
+                            aria-label={`Mark ${c.full_name} as contacted today`}
+                            title="Mark contacted today"
+                          >
+                            <PhoneCall size={13} />
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => {
+                          setShowForm(false);
+                          setEditing(c);
+                        }}
+                        className="rounded p-1.5 text-ink-soft hover:bg-background hover:text-ink"
+                        aria-label={`Edit ${c.full_name}`}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id, c.full_name)}
+                        className="rounded p-1.5 text-ink-soft hover:bg-attention/10 hover:text-attention"
+                        aria-label={`Delete ${c.full_name}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

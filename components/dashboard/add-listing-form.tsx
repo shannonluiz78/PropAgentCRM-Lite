@@ -22,10 +22,23 @@ type PropertyOption = {
   customers: { full_name: string } | null;
 };
 
+export type ExistingListing = {
+  id: string;
+  property_id: string;
+  listing_type: "sale" | "rental";
+  price: number | null;
+  status: (typeof STATUSES)[number]["value"];
+  description: string | null;
+  is_exclusive: boolean;
+  exclusive_expiry: string | null;
+};
+
 export function AddListingForm({
+  existing,
   defaultPropertyId,
   onClose,
 }: {
+  existing?: ExistingListing;
   defaultPropertyId?: string;
   onClose: () => void;
 }) {
@@ -34,11 +47,13 @@ export function AddListingForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    property_id: defaultPropertyId ?? "",
-    listing_type: "sale" as "sale" | "rental",
-    price: "",
-    status: "active" as (typeof STATUSES)[number]["value"],
-    description: "",
+    property_id: existing?.property_id ?? defaultPropertyId ?? "",
+    listing_type: existing?.listing_type ?? "sale",
+    price: existing?.price?.toString() ?? "",
+    status: existing?.status ?? "active",
+    description: existing?.description ?? "",
+    is_exclusive: existing?.is_exclusive ?? false,
+    exclusive_expiry: existing?.exclusive_expiry ?? "",
   });
 
   useEffect(() => {
@@ -63,13 +78,19 @@ export function AddListingForm({
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.from("listings").insert({
+    const payload = {
       property_id: form.property_id,
       listing_type: form.listing_type,
       price: form.price ? Number(form.price) : null,
       status: form.status,
       description: form.description || null,
-    });
+      is_exclusive: form.is_exclusive,
+      exclusive_expiry: form.is_exclusive && form.exclusive_expiry ? form.exclusive_expiry : null,
+    };
+
+    const { error } = existing
+      ? await supabase.from("listings").update(payload).eq("id", existing.id)
+      : await supabase.from("listings").insert(payload);
 
     setLoading(false);
 
@@ -85,7 +106,9 @@ export function AddListingForm({
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">New listing</h2>
+        <h2 className="text-sm font-semibold text-ink">
+          {existing ? "Edit listing" : "New listing"}
+        </h2>
         <button onClick={onClose} className="text-ink-soft hover:text-ink">
           <X size={18} />
         </button>
@@ -165,6 +188,34 @@ export function AddListingForm({
             </select>
           </div>
 
+          <div className="col-span-2 flex items-center gap-2">
+            <input
+              id="is_exclusive"
+              type="checkbox"
+              checked={form.is_exclusive}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, is_exclusive: e.target.checked }))
+              }
+              className="h-4 w-4 rounded border-border text-brass focus:ring-brass/40"
+            />
+            <label htmlFor="is_exclusive" className="text-sm font-medium text-ink">
+              Exclusive mandate
+            </label>
+          </div>
+
+          {form.is_exclusive && (
+            <div className="col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-ink">
+                Exclusive expires
+              </label>
+              <Input
+                type="date"
+                value={form.exclusive_expiry}
+                onChange={(e) => update("exclusive_expiry", e.target.value)}
+              />
+            </div>
+          )}
+
           <div className="col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-ink">
               Marketing description
@@ -189,7 +240,7 @@ export function AddListingForm({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving…" : "Save listing"}
+              {loading ? "Saving…" : existing ? "Save changes" : "Save listing"}
             </Button>
           </div>
         </form>

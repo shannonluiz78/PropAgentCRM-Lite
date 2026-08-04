@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { AddListingForm } from "@/components/dashboard/add-listing-form";
-import { Plus, ListChecks } from "lucide-react";
+import { AddListingForm, type ExistingListing } from "@/components/dashboard/add-listing-form";
+import { Plus, ListChecks, Pencil, Trash2 } from "lucide-react";
 
 type Listing = {
   id: string;
-  listing_type: string;
+  property_id: string;
+  listing_type: "sale" | "rental";
   price: number | null;
   status: string;
+  description: string | null;
+  is_exclusive: boolean;
+  exclusive_expiry: string | null;
   created_at: string;
   properties: {
     address: string;
@@ -39,10 +43,35 @@ function formatPrice(price: number | null, type: string) {
   return type === "rental" ? `${formatted}/mo` : formatted;
 }
 
+function formatExclusive(l: Listing) {
+  if (!l.is_exclusive) return null;
+  if (!l.exclusive_expiry) return { text: "Exclusive", tone: "info" as const };
+  const days = Math.ceil(
+    (new Date(l.exclusive_expiry).getTime() - Date.now()) / 86400000
+  );
+  if (days < 0) return { text: "Exclusive · expired", tone: "attention" as const };
+  if (days <= 14) return { text: `Exclusive · ${days}d left`, tone: "pending" as const };
+  return { text: "Exclusive", tone: "info" as const };
+}
+
+function toExisting(l: Listing): ExistingListing {
+  return {
+    id: l.id,
+    property_id: l.property_id,
+    listing_type: l.listing_type,
+    price: l.price,
+    status: l.status as ExistingListing["status"],
+    description: l.description,
+    is_exclusive: l.is_exclusive,
+    exclusive_expiry: l.exclusive_expiry,
+  };
+}
+
 export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Listing | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function load() {
@@ -51,7 +80,7 @@ export default function ListingsPage() {
     const { data, error } = await supabase
       .from("listings")
       .select(
-        "id, listing_type, price, status, created_at, properties(address, customers(full_name))"
+        "id, property_id, listing_type, price, status, description, is_exclusive, exclusive_expiry, created_at, properties(address, customers(full_name))"
       )
       .order("created_at", { ascending: false });
 
@@ -69,9 +98,27 @@ export default function ListingsPage() {
     load();
   }, []);
 
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+    load();
+  }
+
   async function updateStatus(id: string, status: string) {
     const supabase = createClient();
     await supabase.from("listings").update({ status }).eq("id", id);
+    load();
+  }
+
+  async function handleDelete(l: Listing) {
+    const label = l.properties?.address ?? "this listing";
+    if (!confirm(`Delete the listing for ${label}? This can't be undone.`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("listings").delete().eq("id", l.id);
+    if (error) {
+      alert(`Couldn't delete: ${error.message}`);
+      return;
+    }
     load();
   }
 
@@ -84,19 +131,19 @@ export default function ListingsPage() {
             Active marketing campaigns, each tied back to a property.
           </p>
         </div>
-        <Button onClick={() => setShowForm((s) => !s)}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm((s) => !s);
+          }}
+        >
           <Plus size={16} />
           New listing
         </Button>
       </div>
 
-      {showForm && (
-        <AddListingForm
-          onClose={() => {
-            setShowForm(false);
-            load();
-          }}
-        />
+      {(showForm || editing) && (
+        <AddListingForm existing={editing ? toExisting(editing) : undefined} onClose={closeForm} />
       )}
 
       {errorMsg && (
@@ -120,7 +167,7 @@ export default function ListingsPage() {
 
       {listings.length > 0 && (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[800px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Property</th>
@@ -128,6 +175,7 @@ export default function ListingsPage() {
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Price</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -135,6 +183,23 @@ export default function ListingsPage() {
                 <tr key={l.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium text-ink">
                     {l.properties?.address ?? "—"}
+                    {(() => {
+                      const ex = formatExclusive(l);
+                      if (!ex) return null;
+                      const toneClass =
+                        ex.tone === "attention"
+                          ? "bg-attention/10 text-attention"
+                          : ex.tone === "pending"
+                            ? "bg-pending/10 text-pending"
+                            : "bg-info/10 text-info";
+                      return (
+                        <span
+                          className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${toneClass}`}
+                        >
+                          {ex.text}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-ink-soft">
                     {l.properties?.customers?.full_name ?? "—"}
@@ -157,6 +222,27 @@ export default function ListingsPage() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => {
+                          setShowForm(false);
+                          setEditing(l);
+                        }}
+                        className="rounded p-1.5 text-ink-soft hover:bg-background hover:text-ink"
+                        aria-label="Edit listing"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(l)}
+                        className="rounded p-1.5 text-ink-soft hover:bg-attention/10 hover:text-attention"
+                        aria-label="Delete listing"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

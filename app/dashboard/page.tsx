@@ -29,6 +29,7 @@ export default async function DashboardPage() {
   const today = new Date();
   const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
   const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+  const now = new Date().toISOString();
 
   const [todaysEvents, openTasks, pendingApprovals, pipelineCount] =
     await Promise.all([
@@ -39,6 +40,33 @@ export default async function DashboardPage() {
       safeCount(supabase, "agent_actions", (q) => q.eq("status", "pending")),
       safeCount(supabase, "customers", (q) => q.not("status", "in", "(closed,lost)")),
     ]);
+
+  let overdueTasks: { id: string; title: string; due_at: string }[] = [];
+  let todaysAppointments: { id: string; title: string; starts_at: string }[] = [];
+  try {
+    const { data } = await supabase
+      .from("tasks")
+      .select("id, title, due_at")
+      .eq("status", "open")
+      .lt("due_at", now)
+      .order("due_at", { ascending: true })
+      .limit(3);
+    overdueTasks = data ?? [];
+  } catch {
+    overdueTasks = [];
+  }
+  try {
+    const { data } = await supabase
+      .from("calendar_events")
+      .select("id, title, starts_at")
+      .gte("starts_at", startOfDay)
+      .lte("starts_at", endOfDay)
+      .order("starts_at", { ascending: true })
+      .limit(3);
+    todaysAppointments = data ?? [];
+  } catch {
+    todaysAppointments = [];
+  }
 
   const stats = [
     {
@@ -95,6 +123,58 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {(overdueTasks.length > 0 || todaysAppointments.length > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {overdueTasks.length > 0 && (
+            <Card className="p-5">
+              <p className="mb-3 text-xs font-medium uppercase text-attention">
+                Overdue tasks
+              </p>
+              <ul className="space-y-2">
+                {overdueTasks.map((t) => (
+                  <li key={t.id} className="text-sm text-ink">
+                    {t.title}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/dashboard/tasks"
+                className="mt-3 inline-block text-xs text-brass-dark underline"
+              >
+                View all tasks
+              </Link>
+            </Card>
+          )}
+
+          {todaysAppointments.length > 0 && (
+            <Card className="p-5">
+              <p className="mb-3 text-xs font-medium uppercase text-ink-soft">
+                Today&apos;s appointments
+              </p>
+              <ul className="space-y-2">
+                {todaysAppointments.map((e) => (
+                  <li key={e.id} className="flex justify-between text-sm text-ink">
+                    <span>{e.title}</span>
+                    <span className="text-ink-soft">
+                      {new Date(e.starts_at).toLocaleTimeString("en-SG", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/dashboard/calendar"
+                className="mt-3 inline-block text-xs text-brass-dark underline"
+              >
+                View calendar
+              </Link>
+            </Card>
+          )}
+        </div>
+      )}
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">

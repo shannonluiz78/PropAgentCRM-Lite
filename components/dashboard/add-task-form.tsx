@@ -12,16 +12,37 @@ const PRIORITIES = ["low", "normal", "high"] as const;
 
 type CustomerOption = { id: string; full_name: string };
 
-export function AddTaskForm({ onClose }: { onClose: () => void }) {
+function toLocalInputValue(iso: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export type ExistingTask = {
+  id: string;
+  title: string;
+  due_at: string | null;
+  priority: (typeof PRIORITIES)[number];
+  customer_id: string | null;
+};
+
+export function AddTaskForm({
+  existing,
+  onClose,
+}: {
+  existing?: ExistingTask;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    title: "",
-    due_at: "",
-    priority: "normal" as (typeof PRIORITIES)[number],
-    customer_id: "",
+    title: existing?.title ?? "",
+    due_at: toLocalInputValue(existing?.due_at ?? null),
+    priority: existing?.priority ?? "normal",
+    customer_id: existing?.customer_id ?? "",
   });
 
   useEffect(() => {
@@ -46,13 +67,16 @@ export function AddTaskForm({ onClose }: { onClose: () => void }) {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.from("tasks").insert({
+    const payload = {
       title: form.title,
       due_at: form.due_at ? new Date(form.due_at).toISOString() : null,
       priority: form.priority,
       customer_id: form.customer_id || null,
-      source: "manual",
-    });
+    };
+
+    const { error } = existing
+      ? await supabase.from("tasks").update(payload).eq("id", existing.id)
+      : await supabase.from("tasks").insert({ ...payload, source: "manual" });
 
     setLoading(false);
 
@@ -68,7 +92,9 @@ export function AddTaskForm({ onClose }: { onClose: () => void }) {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">New task</h2>
+        <h2 className="text-sm font-semibold text-ink">
+          {existing ? "Edit task" : "New task"}
+        </h2>
         <button onClick={onClose} className="text-ink-soft hover:text-ink">
           <X size={18} />
         </button>
@@ -144,7 +170,7 @@ export function AddTaskForm({ onClose }: { onClose: () => void }) {
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? "Saving…" : "Save task"}
+            {loading ? "Saving…" : existing ? "Save changes" : "Save task"}
           </Button>
         </div>
       </form>
