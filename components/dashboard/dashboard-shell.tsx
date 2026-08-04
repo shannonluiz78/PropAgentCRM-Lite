@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, ShieldCheck } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { LogoMark } from "@/components/ui/logo";
 
 export function DashboardShell({
   pendingApprovals,
@@ -27,8 +28,8 @@ export function DashboardShell({
         </button>
 
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brass font-mono text-[11px] font-semibold text-navy">
-            PA
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brass text-navy">
+            <LogoMark className="h-3.5 w-3.5" />
           </div>
           <span className="text-sm font-semibold">PropAgent</span>
         </div>

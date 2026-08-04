@@ -31,6 +31,8 @@ export type ExistingListing = {
   description: string | null;
   is_exclusive: boolean;
   exclusive_expiry: string | null;
+  commission_rate: number | null;
+  commission_amount: number | null;
 };
 
 export function AddListingForm({
@@ -54,6 +56,8 @@ export function AddListingForm({
     description: existing?.description ?? "",
     is_exclusive: existing?.is_exclusive ?? false,
     exclusive_expiry: existing?.exclusive_expiry ?? "",
+    commission_rate: existing?.commission_rate?.toString() ?? "",
+    commission_amount: existing?.commission_amount?.toString() ?? "",
   });
 
   useEffect(() => {
@@ -86,6 +90,8 @@ export function AddListingForm({
       description: form.description || null,
       is_exclusive: form.is_exclusive,
       exclusive_expiry: form.is_exclusive && form.exclusive_expiry ? form.exclusive_expiry : null,
+      commission_rate: form.commission_rate ? Number(form.commission_rate) : null,
+      commission_amount: form.commission_amount ? Number(form.commission_amount) : null,
     };
 
     const { error } = existing
@@ -168,6 +174,33 @@ export function AddListingForm({
               value={form.price}
               onChange={(e) => update("price", e.target.value)}
               placeholder={form.listing_type === "rental" ? "3200" : "580000"}
+            />
+          </div>
+
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              Commission rate (%)
+            </label>
+            <Input
+              type="number"
+              min="0"
+              step="0.1"
+              value={form.commission_rate}
+              onChange={(e) => update("commission_rate", e.target.value)}
+              placeholder="1.5"
+            />
+          </div>
+
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              Or fixed commission ($)
+            </label>
+            <Input
+              type="number"
+              min="0"
+              value={form.commission_amount}
+              onChange={(e) => update("commission_amount", e.target.value)}
+              placeholder="Leave blank if using rate above"
             />
           </div>
 

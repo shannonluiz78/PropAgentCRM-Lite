@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/ui/logo";
 import {
   LayoutDashboard,
   Users,
@@ -11,6 +12,7 @@ import {
   ListChecks,
   Calendar,
   CheckSquare,
+  ClipboardList,
   ShieldCheck,
   LogOut,
   X,
@@ -21,6 +23,7 @@ const NAV = [
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/properties", label: "Properties", icon: Home },
   { href: "/dashboard/listings", label: "Listings", icon: ListChecks },
+  { href: "/dashboard/activities", label: "Activities", icon: ClipboardList },
   { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
 ];
@@ -55,8 +58,8 @@ export function Sidebar({
     >
       <div className="flex items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brass font-mono text-xs font-semibold text-navy">
-            PA
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brass text-navy">
+            <LogoMark className="h-4 w-4" />
           </div>
           <div>
             <p className="text-sm font-semibold leading-tight">PropAgent</p>

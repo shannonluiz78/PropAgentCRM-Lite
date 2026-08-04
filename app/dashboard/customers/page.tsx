@@ -12,6 +12,7 @@ type Customer = ExistingCustomer & {
   status: string;
   created_at: string;
   last_contacted_at: string | null;
+  calendar_events: { event_type: string }[];
 };
 
 const STATUS_TONE: Record<string, "success" | "pending" | "attention" | "info" | "neutral"> = {
@@ -46,7 +47,7 @@ export default function CustomersPage() {
     const { data, error } = await supabase
       .from("customers")
       .select(
-        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at"
+        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at, calendar_events(event_type)"
       )
       .order("created_at", { ascending: false });
 
@@ -54,7 +55,7 @@ export default function CustomersPage() {
       setErrorMsg(error.message);
     } else {
       setErrorMsg(null);
-      setCustomers(data ?? []);
+      setCustomers((data as unknown as Customer[]) ?? []);
     }
     setLoading(false);
   }
@@ -141,11 +142,12 @@ export default function CustomersPage() {
 
       {customers.length > 0 && (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-sm">
+          <table className="w-full min-w-[1020px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Viewings</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Area focus</th>
                 <th className="px-4 py-3 font-medium">Source</th>
@@ -159,6 +161,28 @@ export default function CustomersPage() {
                 <tr key={c.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium text-ink">{c.full_name}</td>
                   <td className="px-4 py-3 capitalize text-ink-soft">{c.type}</td>
+                  <td className="px-4 py-3">
+                    {c.type === "buyer" ? (
+                      (() => {
+                        const count = c.calendar_events.filter(
+                          (e) => e.event_type === "viewing"
+                        ).length;
+                        return (
+                          <span
+                            className={
+                              count === 0
+                                ? "text-xs font-medium text-attention"
+                                : "text-xs text-ink-soft"
+                            }
+                          >
+                            {count === 0 ? "No viewings yet" : `${count} viewing${count > 1 ? "s" : ""}`}
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span className="text-xs text-ink-soft">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={STATUS_TONE[c.status] ?? "neutral"}>
                       {c.status}

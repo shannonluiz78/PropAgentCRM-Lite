@@ -1,5 +1,6 @@
 "use client";
 
+import { LogoMark } from "@/components/ui/logo";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -39,8 +40,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md bg-navy font-mono text-sm font-semibold text-white">
-            PA
+          <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md bg-navy text-white">
+            <LogoMark className="h-5 w-5" />
           </div>
           <h1 className="text-xl font-semibold text-ink">PropAgent CRM</h1>
           <p className="text-sm text-ink-soft">North Singapore · Lite</p>

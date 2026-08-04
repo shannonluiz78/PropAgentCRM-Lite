@@ -16,6 +16,8 @@ type Listing = {
   description: string | null;
   is_exclusive: boolean;
   exclusive_expiry: string | null;
+  commission_rate: number | null;
+  commission_amount: number | null;
   created_at: string;
   properties: {
     address: string;
@@ -43,6 +45,14 @@ function formatPrice(price: number | null, type: string) {
   return type === "rental" ? `${formatted}/mo` : formatted;
 }
 
+function effectiveCommission(l: Listing): number | null {
+  if (l.commission_amount != null) return l.commission_amount;
+  if (l.commission_rate != null && l.price != null) {
+    return (l.price * l.commission_rate) / 100;
+  }
+  return null;
+}
+
 function formatExclusive(l: Listing) {
   if (!l.is_exclusive) return null;
   if (!l.exclusive_expiry) return { text: "Exclusive", tone: "info" as const };
@@ -64,6 +74,8 @@ function toExisting(l: Listing): ExistingListing {
     description: l.description,
     is_exclusive: l.is_exclusive,
     exclusive_expiry: l.exclusive_expiry,
+    commission_rate: l.commission_rate,
+    commission_amount: l.commission_amount,
   };
 }
 
@@ -80,7 +92,7 @@ export default function ListingsPage() {
     const { data, error } = await supabase
       .from("listings")
       .select(
-        "id, property_id, listing_type, price, status, description, is_exclusive, exclusive_expiry, created_at, properties(address, customers(full_name))"
+        "id, property_id, listing_type, price, status, description, is_exclusive, exclusive_expiry, commission_rate, commission_amount, created_at, properties(address, customers(full_name))"
       )
       .order("created_at", { ascending: false });
 
@@ -167,13 +179,14 @@ export default function ListingsPage() {
 
       {listings.length > 0 && (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-sm">
+          <table className="w-full min-w-[920px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Property</th>
                 <th className="px-4 py-3 font-medium">Owner</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Price</th>
+                <th className="px-4 py-3 font-medium">Commission</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
@@ -207,6 +220,18 @@ export default function ListingsPage() {
                   <td className="px-4 py-3 capitalize text-ink-soft">{l.listing_type}</td>
                   <td className="px-4 py-3 text-ink-soft">
                     {formatPrice(l.price, l.listing_type)}
+                  </td>
+                  <td className="px-4 py-3 text-ink-soft">
+                    {(() => {
+                      const c = effectiveCommission(l);
+                      return c != null
+                        ? new Intl.NumberFormat("en-SG", {
+                            style: "currency",
+                            currency: "SGD",
+                            maximumFractionDigits: 0,
+                          }).format(c)
+                        : "—";
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <select

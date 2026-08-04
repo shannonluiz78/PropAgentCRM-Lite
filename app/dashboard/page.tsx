@@ -29,6 +29,10 @@ export default async function DashboardPage() {
   const today = new Date();
   const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
   const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const startOfTomorrow = new Date(new Date(tomorrow).setHours(0, 0, 0, 0)).toISOString();
+  const endOfTomorrow = new Date(new Date(tomorrow).setHours(23, 59, 59, 999)).toISOString();
   const now = new Date().toISOString();
 
   const [todaysEvents, openTasks, pendingApprovals, pipelineCount] =
@@ -43,6 +47,7 @@ export default async function DashboardPage() {
 
   let overdueTasks: { id: string; title: string; due_at: string }[] = [];
   let todaysAppointments: { id: string; title: string; starts_at: string }[] = [];
+  let tomorrowsAppointments: { id: string; title: string; starts_at: string }[] = [];
   try {
     const { data } = await supabase
       .from("tasks")
@@ -66,6 +71,39 @@ export default async function DashboardPage() {
     todaysAppointments = data ?? [];
   } catch {
     todaysAppointments = [];
+  }
+  try {
+    const { data } = await supabase
+      .from("calendar_events")
+      .select("id, title, starts_at")
+      .gte("starts_at", startOfTomorrow)
+      .lte("starts_at", endOfTomorrow)
+      .order("starts_at", { ascending: true })
+      .limit(3);
+    tomorrowsAppointments = data ?? [];
+  } catch {
+    tomorrowsAppointments = [];
+  }
+
+  let commissionPipeline = { potential: 0, likely: 0, earned: 0 };
+  try {
+    const { data } = await supabase
+      .from("listings")
+      .select("price, status, commission_rate, commission_amount")
+      .not("status", "eq", "withdrawn");
+    for (const l of data ?? []) {
+      const commission =
+        l.commission_amount != null
+          ? l.commission_amount
+          : l.commission_rate != null && l.price != null
+            ? (l.price * l.commission_rate) / 100
+            : 0;
+      if (l.status === "closed") commissionPipeline.earned += commission;
+      else if (l.status === "under_offer") commissionPipeline.likely += commission;
+      else commissionPipeline.potential += commission;
+    }
+  } catch {
+    commissionPipeline = { potential: 0, likely: 0, earned: 0 };
   }
 
   const stats = [
@@ -124,8 +162,10 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {(overdueTasks.length > 0 || todaysAppointments.length > 0) && (
-        <div className="grid gap-4 sm:grid-cols-2">
+      {(overdueTasks.length > 0 ||
+        todaysAppointments.length > 0 ||
+        tomorrowsAppointments.length > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {overdueTasks.length > 0 && (
             <Card className="p-5">
               <p className="mb-3 text-xs font-medium uppercase text-attention">
@@ -173,7 +213,77 @@ export default async function DashboardPage() {
               </Link>
             </Card>
           )}
+
+          {tomorrowsAppointments.length > 0 && (
+            <Card className="p-5">
+              <p className="mb-3 text-xs font-medium uppercase text-ink-soft">
+                Tomorrow&apos;s appointments
+              </p>
+              <ul className="space-y-2">
+                {tomorrowsAppointments.map((e) => (
+                  <li key={e.id} className="flex justify-between text-sm text-ink">
+                    <span>{e.title}</span>
+                    <span className="text-ink-soft">
+                      {new Date(e.starts_at).toLocaleTimeString("en-SG", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/dashboard/calendar"
+                className="mt-3 inline-block text-xs text-brass-dark underline"
+              >
+                View calendar
+              </Link>
+            </Card>
+          )}
         </div>
+      )}
+
+      {(commissionPipeline.potential > 0 ||
+        commissionPipeline.likely > 0 ||
+        commissionPipeline.earned > 0) && (
+        <Card className="p-6">
+          <h2 className="mb-4 text-sm font-semibold text-ink">Commission pipeline</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs uppercase text-ink-soft">Potential</p>
+              <p className="mt-1 text-xl font-semibold text-ink">
+                {new Intl.NumberFormat("en-SG", {
+                  style: "currency",
+                  currency: "SGD",
+                  maximumFractionDigits: 0,
+                }).format(commissionPipeline.potential)}
+              </p>
+              <p className="text-xs text-ink-soft">Draft &amp; active listings</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-pending">Likely</p>
+              <p className="mt-1 text-xl font-semibold text-ink">
+                {new Intl.NumberFormat("en-SG", {
+                  style: "currency",
+                  currency: "SGD",
+                  maximumFractionDigits: 0,
+                }).format(commissionPipeline.likely)}
+              </p>
+              <p className="text-xs text-ink-soft">Under offer</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-success">Earned</p>
+              <p className="mt-1 text-xl font-semibold text-ink">
+                {new Intl.NumberFormat("en-SG", {
+                  style: "currency",
+                  currency: "SGD",
+                  maximumFractionDigits: 0,
+                }).format(commissionPipeline.earned)}
+              </p>
+              <p className="text-xs text-ink-soft">Closed listings</p>
+            </div>
+          </div>
+        </Card>
       )}
 
       <Card className="p-6">
