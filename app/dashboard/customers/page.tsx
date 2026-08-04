@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AddCustomerForm, type ExistingCustomer } from "@/components/dashboard/add-customer-form";
-import { Plus, Users, Pencil, Trash2, PhoneCall } from "lucide-react";
+import { Plus, Users, Pencil, Trash2, PhoneCall, ClipboardList } from "lucide-react";
 
 type Customer = ExistingCustomer & {
   status: string;
   created_at: string;
   last_contacted_at: string | null;
   calendar_events: { event_type: string }[];
+  activities: { id: string }[];
 };
 
 const STATUS_TONE: Record<string, "success" | "pending" | "attention" | "info" | "neutral"> = {
@@ -47,7 +49,7 @@ export default function CustomersPage() {
     const { data, error } = await supabase
       .from("customers")
       .select(
-        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at, calendar_events(event_type)"
+        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at, calendar_events(event_type), activities(id)"
       )
       .order("created_at", { ascending: false });
 
@@ -142,7 +144,7 @@ export default function CustomersPage() {
 
       {customers.length > 0 && (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[1020px] text-sm">
+          <table className="w-full min-w-[1120px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -153,6 +155,7 @@ export default function CustomersPage() {
                 <th className="px-4 py-3 font-medium">Source</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">Last contacted</th>
+                <th className="px-4 py-3 font-medium">Activities</th>
                 <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -210,6 +213,15 @@ export default function CustomersPage() {
                         </div>
                       );
                     })()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/dashboard/activities?customer=${c.id}`}
+                      className="flex items-center gap-1 text-xs text-ink-soft hover:text-brass-dark hover:underline"
+                    >
+                      <ClipboardList size={13} />
+                      {c.activities.length}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">

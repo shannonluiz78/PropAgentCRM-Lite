@@ -58,8 +58,8 @@ export function Sidebar({
     >
       <div className="flex items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brass text-navy">
-            <LogoMark className="h-4 w-4" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white p-1">
+            <LogoMark className="h-full w-full" />
           </div>
           <div>
             <p className="text-sm font-semibold leading-tight">PropAgent</p>

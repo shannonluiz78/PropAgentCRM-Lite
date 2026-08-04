@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AddActivityForm, type ExistingActivity } from "@/components/dashboard/add-activity-form";
-import { Plus, ClipboardList, Pencil, Trash2 } from "lucide-react";
+import { Plus, ClipboardList, Pencil, Trash2, X } from "lucide-react";
 
 type Activity = {
   id: string;
@@ -50,8 +52,12 @@ function toExisting(a: Activity): ExistingActivity {
   };
 }
 
-export default function ActivitiesPage() {
+function ActivitiesPageInner() {
+  const searchParams = useSearchParams();
+  const customerId = searchParams.get("customer");
+
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [filterName, setFilterName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -60,12 +66,30 @@ export default function ActivitiesPage() {
   async function load() {
     setLoading(true);
     const supabase = createClient();
-    const { data, error } = await supabase
+
+    if (customerId) {
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("full_name")
+        .eq("id", customerId)
+        .single();
+      setFilterName(customer?.full_name ?? null);
+    } else {
+      setFilterName(null);
+    }
+
+    let query = supabase
       .from("activities")
       .select(
         "id, activity_type, content, created_at, customer_id, property_id, listing_id, customers(full_name), properties(address), listings(properties(address))"
       )
       .order("created_at", { ascending: false });
+
+    if (customerId) {
+      query = query.eq("customer_id", customerId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       setErrorMsg(error.message);
@@ -77,9 +101,10 @@ export default function ActivitiesPage() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refetch when the customer filter changes
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId]);
 
   function closeForm() {
     setShowForm(false);
@@ -119,8 +144,28 @@ export default function ActivitiesPage() {
         </Button>
       </div>
 
+      {customerId && (
+        <div className="flex items-center justify-between rounded-md border border-info/30 bg-info/5 px-4 py-2.5 text-sm">
+          <span className="text-ink">
+            Showing activities for{" "}
+            <span className="font-medium">{filterName ?? "this customer"}</span>
+          </span>
+          <Link
+            href="/dashboard/activities"
+            className="flex items-center gap-1 text-xs text-ink-soft hover:text-ink"
+          >
+            <X size={13} />
+            Clear filter
+          </Link>
+        </div>
+      )}
+
       {(showForm || editing) && (
-        <AddActivityForm existing={editing ? toExisting(editing) : undefined} onClose={closeForm} />
+        <AddActivityForm
+          existing={editing ? toExisting(editing) : undefined}
+          defaultCustomerId={customerId ?? undefined}
+          onClose={closeForm}
+        />
       )}
 
       {errorMsg && (
@@ -192,5 +237,13 @@ export default function ActivitiesPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function ActivitiesPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-ink-soft">Loading…</div>}>
+      <ActivitiesPageInner />
+    </Suspense>
   );
 }

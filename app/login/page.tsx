@@ -40,8 +40,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md bg-navy text-white">
-            <LogoMark className="h-5 w-5" />
+          <div className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-md border border-border bg-white p-1.5 shadow-sm">
+            <LogoMark className="h-full w-full" />
           </div>
           <h1 className="text-xl font-semibold text-ink">PropAgent CRM</h1>
           <p className="text-sm text-ink-soft">North Singapore · Lite</p>

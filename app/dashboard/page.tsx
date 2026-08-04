@@ -162,86 +162,88 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {(overdueTasks.length > 0 ||
-        todaysAppointments.length > 0 ||
-        tomorrowsAppointments.length > 0) && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {overdueTasks.length > 0 && (
-            <Card className="p-5">
-              <p className="mb-3 text-xs font-medium uppercase text-attention">
-                Overdue tasks
-              </p>
-              <ul className="space-y-2">
-                {overdueTasks.map((t) => (
-                  <li key={t.id} className="text-sm text-ink">
-                    {t.title}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/dashboard/tasks"
-                className="mt-3 inline-block text-xs text-brass-dark underline"
-              >
-                View all tasks
-              </Link>
-            </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="p-5">
+          <p className="mb-3 text-xs font-medium uppercase text-attention">
+            Overdue tasks
+          </p>
+          {overdueTasks.length > 0 ? (
+            <ul className="space-y-2">
+              {overdueTasks.map((t) => (
+                <li key={t.id} className="text-sm text-ink">
+                  {t.title}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-soft">Nothing overdue.</p>
           )}
+          <Link
+            href="/dashboard/tasks"
+            className="mt-3 inline-block text-xs text-brass-dark underline"
+          >
+            View all tasks
+          </Link>
+        </Card>
 
-          {todaysAppointments.length > 0 && (
-            <Card className="p-5">
-              <p className="mb-3 text-xs font-medium uppercase text-ink-soft">
-                Today&apos;s appointments
-              </p>
-              <ul className="space-y-2">
-                {todaysAppointments.map((e) => (
-                  <li key={e.id} className="flex justify-between text-sm text-ink">
-                    <span>{e.title}</span>
-                    <span className="text-ink-soft">
-                      {new Date(e.starts_at).toLocaleTimeString("en-SG", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/dashboard/calendar"
-                className="mt-3 inline-block text-xs text-brass-dark underline"
-              >
-                View calendar
-              </Link>
-            </Card>
+        <Card className="p-5">
+          <p className="mb-3 text-xs font-medium uppercase text-ink-soft">
+            Today&apos;s appointments
+          </p>
+          {todaysAppointments.length > 0 ? (
+            <ul className="space-y-2">
+              {todaysAppointments.map((e) => (
+                <li key={e.id} className="flex justify-between text-sm text-ink">
+                  <span>{e.title}</span>
+                  <span className="text-ink-soft">
+                    {new Date(e.starts_at).toLocaleTimeString("en-SG", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-soft">Nothing scheduled today.</p>
           )}
+          <Link
+            href="/dashboard/calendar"
+            className="mt-3 inline-block text-xs text-brass-dark underline"
+          >
+            View calendar
+          </Link>
+        </Card>
 
-          {tomorrowsAppointments.length > 0 && (
-            <Card className="p-5">
-              <p className="mb-3 text-xs font-medium uppercase text-ink-soft">
-                Tomorrow&apos;s appointments
-              </p>
-              <ul className="space-y-2">
-                {tomorrowsAppointments.map((e) => (
-                  <li key={e.id} className="flex justify-between text-sm text-ink">
-                    <span>{e.title}</span>
-                    <span className="text-ink-soft">
-                      {new Date(e.starts_at).toLocaleTimeString("en-SG", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/dashboard/calendar"
-                className="mt-3 inline-block text-xs text-brass-dark underline"
-              >
-                View calendar
-              </Link>
-            </Card>
+        <Card className="p-5">
+          <p className="mb-3 text-xs font-medium uppercase text-ink-soft">
+            Tomorrow&apos;s appointments
+          </p>
+          {tomorrowsAppointments.length > 0 ? (
+            <ul className="space-y-2">
+              {tomorrowsAppointments.map((e) => (
+                <li key={e.id} className="flex justify-between text-sm text-ink">
+                  <span>{e.title}</span>
+                  <span className="text-ink-soft">
+                    {new Date(e.starts_at).toLocaleTimeString("en-SG", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-soft">Nothing scheduled yet.</p>
           )}
-        </div>
-      )}
+          <Link
+            href="/dashboard/calendar"
+            className="mt-3 inline-block text-xs text-brass-dark underline"
+          >
+            View calendar
+          </Link>
+        </Card>
+      </div>
 
       {(commissionPipeline.potential > 0 ||
         commissionPipeline.likely > 0 ||
