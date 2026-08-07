@@ -13,6 +13,7 @@ import {
   Calendar,
   CheckSquare,
   ClipboardList,
+  ListTree,
   ShieldCheck,
   LogOut,
   X,
@@ -26,6 +27,7 @@ const NAV = [
   { href: "/dashboard/activities", label: "Activities", icon: ClipboardList },
   { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/dashboard/sops", label: "Standing Instructions", icon: ListTree },
 ];
 
 export function Sidebar({

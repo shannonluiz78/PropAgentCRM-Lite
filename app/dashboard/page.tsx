@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { RunAgentButton } from "@/components/dashboard/run-agent-button";
 import Link from "next/link";
 import { CalendarClock, CheckSquare, ShieldCheck, TrendingUp } from "lucide-react";
 
@@ -105,6 +106,8 @@ export default async function DashboardPage() {
   } catch {
     commissionPipeline = { potential: 0, likely: 0, earned: 0 };
   }
+
+  const activeSopCount = await safeCount(supabase, "sop_rules", (q) => q.eq("is_active", true));
 
   const stats = [
     {
@@ -290,19 +293,22 @@ export default async function DashboardPage() {
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">AI Assistant</h2>
+          <h2 className="text-sm font-semibold text-ink">Lead Agent</h2>
           <Badge tone="info">Draft-only mode</Badge>
         </div>
-        <p className="text-sm text-ink-soft">
-          The Lead Agent is set up but has no SOPs yet — it won&apos;t take any
-          action until you add your first rule. Once active, anything it
-          drafts for a customer (a WhatsApp reply, a listing description,
-          a reminder) will show up under{" "}
+        <p className="mb-4 text-sm text-ink-soft">
+          Checks your{" "}
+          <Link href="/dashboard/sops" className="text-brass-dark underline">
+            standing instructions
+          </Link>{" "}
+          against your current customers, listings, and tasks, and drafts
+          anything that matches into{" "}
           <Link href="/dashboard/approvals" className="text-brass-dark underline">
             Approvals
-          </Link>{" "}
-          for you to approve, edit, or reject — never sent automatically.
+          </Link>
+          . Nothing is ever sent automatically — you run it, you review it.
         </p>
+        <RunAgentButton hasActiveSops={activeSopCount > 0} />
       </Card>
     </div>
   );
