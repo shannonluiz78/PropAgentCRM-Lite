@@ -27,14 +27,23 @@ async function safeCount(supabase: Supabase, table: string, filters?: CountFilte
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const today = new Date();
-  const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-  const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const startOfTomorrow = new Date(new Date(tomorrow).setHours(0, 0, 0, 0)).toISOString();
-  const endOfTomorrow = new Date(new Date(tomorrow).setHours(23, 59, 59, 999)).toISOString();
-  const now = new Date().toISOString();
+  // This server runs in UTC on Vercel, but "today" and "tomorrow" need to
+  // mean Singapore's calendar day, not UTC's — otherwise anything scheduled
+  // before 8am SGT gets bucketed into the wrong day. en-CA gives a plain
+  // YYYY-MM-DD string, which we then anchor explicitly to +08:00.
+  function sgDateString(date: Date): string {
+    return date.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+  }
+
+  const now = new Date();
+  const todaySG = sgDateString(now);
+  const tomorrowSG = sgDateString(new Date(now.getTime() + 86400000));
+
+  const startOfDay = new Date(`${todaySG}T00:00:00+08:00`).toISOString();
+  const endOfDay = new Date(`${todaySG}T23:59:59.999+08:00`).toISOString();
+  const startOfTomorrow = new Date(`${tomorrowSG}T00:00:00+08:00`).toISOString();
+  const endOfTomorrow = new Date(`${tomorrowSG}T23:59:59.999+08:00`).toISOString();
+  const nowIso = now.toISOString();
 
   const [todaysEvents, openTasks, pendingApprovals, pipelineCount] =
     await Promise.all([
@@ -54,7 +63,7 @@ export default async function DashboardPage() {
       .from("tasks")
       .select("id, title, due_at")
       .eq("status", "open")
-      .lt("due_at", now)
+      .lt("due_at", nowIso)
       .order("due_at", { ascending: true })
       .limit(3);
     overdueTasks = data ?? [];
@@ -202,6 +211,7 @@ export default async function DashboardPage() {
                     {new Date(e.starts_at).toLocaleTimeString("en-SG", {
                       hour: "numeric",
                       minute: "2-digit",
+                      timeZone: "Asia/Singapore",
                     })}
                   </span>
                 </li>
@@ -231,6 +241,7 @@ export default async function DashboardPage() {
                     {new Date(e.starts_at).toLocaleTimeString("en-SG", {
                       hour: "numeric",
                       minute: "2-digit",
+                      timeZone: "Asia/Singapore",
                     })}
                   </span>
                 </li>

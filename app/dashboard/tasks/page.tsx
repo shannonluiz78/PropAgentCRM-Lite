@@ -35,6 +35,7 @@ function formatDue(iso: string | null) {
       month: "short",
       hour: "numeric",
       minute: "2-digit",
+      timeZone: "Asia/Singapore",
     }),
     overdue,
   };
