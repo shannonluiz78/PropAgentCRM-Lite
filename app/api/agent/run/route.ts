@@ -52,7 +52,9 @@ export async function POST() {
   ] = await Promise.all([
     supabase
       .from("customers")
-      .select("id, full_name, type, status, last_contacted_at, area_focus, requirements"),
+      .select(
+        "id, full_name, type, status, last_contacted_at, closed_at, area_focus, requirements, properties(address, property_type, tenure)"
+      ),
     supabase
       .from("listings")
       .select("id, listing_type, price, status, created_at, is_exclusive, exclusive_expiry, properties(address, customers(full_name))"),
@@ -139,6 +141,7 @@ Rules:
 - Only draft an action for a genuine match. Do not force a match for every SOP.
 - Do not draft an action for a customer+action_type combination that already appears in "Already pending" below — that one is still waiting for human review, don't duplicate it.
 - If a customer has notes under "Existing memory," use them for context and continuity, don't contradict them.
+- For closed customers (status "closed" or "lost"), use closed_at and today's date to judge how long ago they closed. If a customer's properties list shows an HDB unit, note that HDB flats generally can't be resold until 5 years after purchase (the Minimum Occupation Period) — factor that into whether a "time to sell/upgrade" SOP genuinely applies yet.
 - customer_id must be one of the real IDs listed below, or null if the action isn't tied to a specific customer.
 
 Standing Instructions (SOPs):

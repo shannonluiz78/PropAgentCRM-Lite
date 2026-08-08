@@ -9,6 +9,15 @@ import { Card } from "@/components/ui/card";
 import { X } from "lucide-react";
 
 const TYPES = ["buyer", "seller", "landlord", "tenant"] as const;
+const STATUSES = [
+  { value: "new", label: "New" },
+  { value: "contacted", label: "Contacted" },
+  { value: "qualified", label: "Qualified" },
+  { value: "viewing", label: "Viewing" },
+  { value: "offer", label: "Offer" },
+  { value: "closed", label: "Closed — Won" },
+  { value: "lost", label: "Closed — Lost" },
+] as const;
 
 export type ExistingCustomer = {
   id: string;
@@ -16,9 +25,11 @@ export type ExistingCustomer = {
   phone: string | null;
   email: string | null;
   type: string;
+  status: string;
   source: string | null;
   area_focus: string | null;
   requirements: string | null;
+  closed_at: string | null;
 };
 
 export function AddCustomerForm({
@@ -36,6 +47,7 @@ export function AddCustomerForm({
     phone: existing?.phone ?? "",
     email: existing?.email ?? "",
     type: (existing?.type as (typeof TYPES)[number]) ?? "buyer",
+    status: (existing?.status as (typeof STATUSES)[number]["value"]) ?? "new",
     source: existing?.source ?? "",
     area_focus: existing?.area_focus ?? "",
     requirements: existing?.requirements ?? "",
@@ -51,14 +63,27 @@ export function AddCustomerForm({
     setError(null);
 
     const supabase = createClient();
+
+    const wasClosed = existing ? ["closed", "lost"].includes(existing.status) : false;
+    const isClosed = ["closed", "lost"].includes(form.status);
+    // Stamp the moment it first closes; clear it if reopened; leave it
+    // alone if it was already closed and stays closed (e.g. editing notes).
+    const closed_at = isClosed
+      ? wasClosed
+        ? existing!.closed_at
+        : new Date().toISOString()
+      : null;
+
     const payload = {
       full_name: form.full_name,
       phone: form.phone || null,
       email: form.email || null,
       type: form.type,
+      status: form.status,
       source: form.source || null,
       area_focus: form.area_focus || null,
       requirements: form.requirements || null,
+      closed_at,
     };
 
     const { error } = existing
@@ -116,6 +141,34 @@ export function AddCustomerForm({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="col-span-2 sm:col-span-1">
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            Status
+          </label>
+          <select
+            value={form.status}
+            onChange={(e) => update("status", e.target.value)}
+            className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brass/40 focus:border-brass"
+          >
+            {STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          {existing?.closed_at && ["closed", "lost"].includes(form.status) && (
+            <p className="mt-1 text-xs text-ink-soft">
+              Closed on{" "}
+              {new Date(existing.closed_at).toLocaleDateString("en-SG", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                timeZone: "Asia/Singapore",
+              })}
+            </p>
+          )}
         </div>
 
         <div className="col-span-2 sm:col-span-1">

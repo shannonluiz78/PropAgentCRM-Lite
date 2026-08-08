@@ -10,12 +10,13 @@ import { AddCustomerForm, type ExistingCustomer } from "@/components/dashboard/a
 import { Plus, Users, Pencil, Trash2, PhoneCall, ClipboardList } from "lucide-react";
 
 type Customer = ExistingCustomer & {
-  status: string;
   created_at: string;
   last_contacted_at: string | null;
   calendar_events: { event_type: string }[];
   activities: { id: string }[];
 };
+
+type Tab = "active" | "closed" | "lost" | "all";
 
 const STATUS_TONE: Record<string, "success" | "pending" | "attention" | "info" | "neutral"> = {
   new: "info",
@@ -36,12 +37,23 @@ function formatLastContacted(iso: string | null) {
   return { text, stale };
 }
 
+function formatClosedAt(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-SG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Singapore",
+  });
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("active");
 
   async function load() {
     setLoading(true);
@@ -49,7 +61,7 @@ export default function CustomersPage() {
     const { data, error } = await supabase
       .from("customers")
       .select(
-        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at, calendar_events(event_type), activities(id)"
+        "id, full_name, type, status, phone, email, area_focus, source, requirements, created_at, last_contacted_at, closed_at, calendar_events(event_type), activities(id)"
       )
       .order("created_at", { ascending: false });
 
@@ -99,6 +111,20 @@ export default function CustomersPage() {
     load();
   }
 
+  const filtered = customers.filter((c) => {
+    if (tab === "active") return c.status !== "closed" && c.status !== "lost";
+    if (tab === "closed") return c.status === "closed";
+    if (tab === "lost") return c.status === "lost";
+    return true;
+  });
+
+  const counts = {
+    active: customers.filter((c) => c.status !== "closed" && c.status !== "lost").length,
+    closed: customers.filter((c) => c.status === "closed").length,
+    lost: customers.filter((c) => c.status === "lost").length,
+    all: customers.length,
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -117,6 +143,29 @@ export default function CustomersPage() {
           <Plus size={16} />
           New lead
         </Button>
+      </div>
+
+      <div className="flex gap-1 border-b border-border">
+        {(
+          [
+            { key: "active", label: "Active" },
+            { key: "closed", label: "Closed — Won" },
+            { key: "lost", label: "Closed — Lost" },
+            { key: "all", label: "All" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              tab === t.key
+                ? "border-brass text-ink"
+                : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+          >
+            {t.label} ({counts[t.key]})
+          </button>
+        ))}
       </div>
 
       {(showForm || editing) && (
@@ -142,15 +191,23 @@ export default function CustomersPage() {
         </Card>
       )}
 
-      {customers.length > 0 && (
+      {!loading && !errorMsg && customers.length > 0 && filtered.length === 0 && (
+        <Card className="flex flex-col items-center justify-center gap-2 p-12 text-center">
+          <Users className="text-ink-soft" size={28} />
+          <p className="text-sm text-ink-soft">Nothing in this view yet.</p>
+        </Card>
+      )}
+
+      {filtered.length > 0 && (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] text-sm">
+          <table className="w-full min-w-[1200px] text-sm">
             <thead className="border-b border-border bg-background text-left text-xs uppercase text-ink-soft">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Viewings</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Closed on</th>
                 <th className="px-4 py-3 font-medium">Area focus</th>
                 <th className="px-4 py-3 font-medium">Source</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
@@ -160,7 +217,7 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => (
+              {filtered.map((c) => (
                 <tr key={c.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium text-ink">{c.full_name}</td>
                   <td className="px-4 py-3 capitalize text-ink-soft">{c.type}</td>
@@ -191,6 +248,7 @@ export default function CustomersPage() {
                       {c.status}
                     </Badge>
                   </td>
+                  <td className="px-4 py-3 text-ink-soft">{formatClosedAt(c.closed_at)}</td>
                   <td className="px-4 py-3 text-ink-soft">{c.area_focus ?? "—"}</td>
                   <td className="px-4 py-3 text-ink-soft">{c.source ?? "—"}</td>
                   <td className="px-4 py-3 text-ink-soft">{c.phone ?? "—"}</td>
